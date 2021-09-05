@@ -1,116 +1,189 @@
 import PySimpleGUI as sg
-import pyaudio
-import numpy as np
 from pysinewave import SineWave
+import serial
+from time import sleep
 
 """PyAudio PySimpleGUI Non Blocking Stream for Microphone"""
 
 # VARS CONSTS:
 _VARS = {'window': False,
-         'stream': False}
+         'stream': False,
+         'initial_pitch': -7,
+         'min_pitch': -15,
+         'max_pitch': 2,
+         'decibels_per_second': 100,
+         'pitch_per_second': 20,
+         'port': 1,
+         'usb_max': 255}
 
 # pysimpleGUI INIT:
 AppFont = 'Any 16'
 sg.theme('DarkTeal2')
-layout = [[sg.ProgressBar(4000, orientation='h',
-                          size=(20, 20), key='-PROG-')],
-          [sg.Text('Enter pitch'), sg.InputText(),
-           sg.Button('Set', font=AppFont, disabled=True)
-           ],
-          [sg.Button('Listen', font=AppFont),
+layout = [[[sg.Text('Initial Pitch'), sg.InputText(_VARS['initial_pitch'], key='InitPitch', disabled=True, enable_events=True)],
+           [sg.Text('Max Pitch'), sg.InputText(_VARS['max_pitch'], key='MaxPitch', disabled=True, enable_events=True)],
+           [sg.Text('Min Pitch'), sg.InputText(_VARS['min_pitch'], key='MinPitch', disabled=True, enable_events=True)],
+           [sg.Text('Pitch Per Second'), sg.InputText(_VARS['pitch_per_second'], key='PitchPerSec', disabled=True, enable_events=True)],
+           [sg.Text('Serial Port'), sg.InputText(_VARS['port'], key='Port', disabled=True, enable_events=True)]],
+          [sg.Button('Save', font=AppFont, disabled=True)],
+          [sg.ProgressBar(_VARS['max_pitch']-_VARS['min_pitch'], orientation='h', size=(20, 20), key='Frequency')],
+          [sg.Text('Enter pitch'), sg.InputText(_VARS['initial_pitch'], key='Pitch', disabled=True, enable_events=True),
+           sg.Button('Set', font=AppFont, disabled=True),
+           sg.Slider(key='Volume', range=(0, 100), disabled=True, orientation='v', size=(10, 15), default_value=100, enable_events = True)],
+          [sg.Button('Play-USB', font=AppFont),
            sg.Button('Play', font=AppFont),
            sg.Button('Stop', font=AppFont, disabled=True),
-           sg.Button('Exit', font=AppFont)]]
-_VARS['window'] = sg.Window('Microphone Level', layout, finalize=True)
-
-# PyAudio INIT:
-CHUNK = 1024  # Samples: 1024,  512, 256, 128
-RATE = 44100  # Equivalent to Human Hearing at 40 kHz
-INTERVAL = 1  # Sampling Interval in Seconds ie Interval to listen
-
-pAud = pyaudio.PyAudio()
+           sg.Button('Exit', font=AppFont),
+           sg.Button('Calibrate', font=AppFont, disabled=False)]]
+_VARS['window'] = sg.Window('Instrument | Pleksouda', layout, finalize=True)
 
 
 # FUNCTIONS:
 
-
-def stop(sinewave):
+def stop():
     if _VARS['stream']:
-        _VARS['stream'].stop_stream()
-        _VARS['stream'].close()
-        _VARS['window']['-PROG-'].update(0)
-        _VARS['window'].FindElement('Stop').Update(disabled=True)
-        _VARS['window'].FindElement('Listen').Update(disabled=False)
-        _VARS['window'].FindElement('Play').Update(disabled=False)
-        _VARS['window'].FindElement('Set').Update(disabled=True)
-        sinewave.stop()
+        _VARS['window']['Frequency'].update(0)
+        _VARS['window']['Stop'].Update(disabled=True)
+        _VARS['window']['Play'].Update(disabled=False)
+        _VARS['window']['Play-USB'].Update(disabled=False)
+        _VARS['window']['Set'].Update(disabled=True)
+        _VARS['window']['Volume'].Update(disabled=True)
+        _VARS['window']['Pitch'].Update(disabled=True)
+        _VARS['window']['Calibrate'].Update(disabled=False)
+        _VARS['stream'].stop()
+        _VARS['stream'] = False
 
 
-def callback(in_data, frame_count, time_info, status):
-    # print(in_data)
-    data = np.frombuffer(in_data, dtype=np.int16)
-    # print(np.amax(data))
-    _VARS['window']['-PROG-'].update(np.amax(data))
-    return (in_data, pyaudio.paContinue)
-
-
-def play_callback(in_data, frame_count, time_info, status):
-    # print(in_data)
-    X1 = np.linspace(0, 5 * np.pi, num=441, endpoint=False)
-    Y1 = (5000 * np.sin(X1)).astype(np.int16)
-    data = Y1.tobytes()
-    data = np.frombuffer(in_data, dtype=np.int16).to_bytes()
-    # print(np.amax(data))
-    # _VARS['window']['-PROG-'].update(np.amax(data))
-    return (data, pyaudio.paContinue)
-
-
-def listen():
-    _VARS['window'].FindElement('Stop').Update(disabled=False)
-    _VARS['window'].FindElement('Listen').Update(disabled=True)
-    _VARS['window'].FindElement('Play').Update(disabled=True)
-    _VARS['stream'] = pAud.open(format=pyaudio.paInt16,
-                                channels=1,
-                                rate=RATE,
-                                input=True,
-                                frames_per_buffer=CHUNK,
-                                stream_callback=callback)
-
-    _VARS['stream'].start_stream()
-
-
-def play(sinewave):
-    _VARS['window'].FindElement('Stop').Update(disabled=False)
-    _VARS['window'].FindElement('Listen').Update(disabled=True)
-    _VARS['window'].FindElement('Play').Update(disabled=True)
-    _VARS['window'].FindElement('Set').Update(disabled=False)
+def play():
+    _VARS['window']['Stop'].Update(disabled=False)
+    _VARS['window']['Play'].Update(disabled=True)
+    _VARS['window']['Play-USB'].Update(disabled=True)
+    _VARS['window']['Set'].Update(disabled=False)
+    _VARS['window']['Volume'].Update(disabled=False)
+    _VARS['window']['Pitch'].Update(disabled=False)
+    _VARS['window']['Calibrate'].Update(disabled=True)
     # Turn the sine wave on.
-    sinewave.play()
+    _VARS['stream'] = SineWave(pitch=_VARS['initial_pitch'], pitch_per_second=_VARS['pitch_per_second'], decibels_per_second=_VARS['decibels_per_second'])
+    _VARS['stream'].play()
+    set_pitch()
 
 
-def set(sinewave, pitch):
-    _VARS['window'].FindElement('Stop').Update(disabled=False)
-    _VARS['window'].FindElement('Listen').Update(disabled=True)
-    _VARS['window'].FindElement('Play').Update(disabled=True)
-    sinewave.set_pitch(pitch)
+def set_pitch(pitch=_VARS['initial_pitch']):
+    _VARS['window']['Frequency'].update(pitch-_VARS['min_pitch'])
+    _VARS['stream'].set_pitch(pitch)
 
+
+def set_volume(volume):
+    if _VARS['stream']:
+        _VARS['stream'].set_volume(volume)
+
+
+def calibrate():
+    if not _VARS['stream']:
+        # Buttons
+        _VARS['window']['Stop'].Update(disabled=True)
+        _VARS['window']['Play'].Update(disabled=True)
+        _VARS['window']['Play-USB'].Update(disabled=True)
+        _VARS['window']['Set'].Update(disabled=True)
+        _VARS['window']['Volume'].Update(disabled=True)
+        _VARS['window']['Save'].Update(disabled=False)
+        _VARS['window']['Calibrate'].Update(disabled=True)
+        # Inputs
+        _VARS['window']['InitPitch'].Update(disabled=False)
+        _VARS['window']['MaxPitch'].Update(disabled=False)
+        _VARS['window']['MinPitch'].Update(disabled=False)
+        _VARS['window']['PitchPerSec'].Update(disabled=False)
+        _VARS['window']['Port'].Update(disabled=False)
+
+
+def save(initial_pitch, max_pitch, min_pitch, pitch_per_second, port):
+    # Buttons
+    _VARS['window']['Play'].Update(disabled=False)
+    _VARS['window']['Play-USB'].Update(disabled=False)
+    _VARS['window']['Calibrate'].Update(disabled=False)
+    _VARS['window']['Save'].Update(disabled=True)
+    # Inputs
+    _VARS['window']['InitPitch'].Update(disabled=True)
+    _VARS['window']['MaxPitch'].Update(disabled=True)
+    _VARS['window']['MinPitch'].Update(disabled=True)
+    _VARS['window']['PitchPerSec'].Update(disabled=True)
+    _VARS['window']['Port'].Update(disabled=True)
+    # Save vars
+    _VARS['window']['Pitch'].update(initial_pitch)
+    _VARS['initial_pitch'] = initial_pitch
+    _VARS['max_pitch'] = max_pitch
+    _VARS['min_pitch'] = min_pitch
+    _VARS['pitch_per_second'] = pitch_per_second
+    _VARS['port'] = port
+
+def play_usb(serial_port):
+    _VARS['window']['Stop'].Update(disabled=False)
+    _VARS['window']['Play'].Update(disabled=True)
+    _VARS['window']['Play-USB'].Update(disabled=True)
+    _VARS['window']['Set'].Update(disabled=True)
+    _VARS['window']['Volume'].Update(disabled=False)
+    _VARS['window']['Pitch'].Update(disabled=True)
+    _VARS['window']['Calibrate'].Update(disabled=True)
+    _VARS['window']['Exit'].Update(disabled=True)
+    # Turn the sine wave on.
+    _VARS['stream'] = SineWave(pitch=_VARS['initial_pitch'], pitch_per_second=_VARS['pitch_per_second'], decibels_per_second=_VARS['decibels_per_second'])
+    _VARS['stream'].play()
+    while True:
+        # Check for Events
+        event, values = _VARS['window'].read(timeout=200)
+        if event == 'Stop':
+            stop()
+            _VARS['window']['Exit'].Update(disabled=False)
+            break
+        if event == 'Volume':
+            set_volume(float(values['Volume'] - 100))
+        # Obtain and process USB value
+        usb = serial_port.readline()
+        usb = (usb/_VARS['usb_max'])*_VARS['max_pitch']-abs(_VARS['min_pitch'])
+        set_pitch(usb)
+        sleep(1)
 
 # MAIN LOOP
-sinewave = SineWave(pitch=0)
+
 while True:
     event, values = _VARS['window'].read(timeout=200)
+    # Exit
     if event == sg.WIN_CLOSED or event == 'Exit':
         stop()
-        pAud.terminate()
         break
-    if event == 'Listen':
-        listen()
-        print("still")
+    # Buttons
     if event == 'Stop':
-        stop(sinewave)
+        stop()
     if event == 'Play':
-        play(sinewave)
+        play()
     if event == 'Set':
-        set(sinewave, int(values[0]))
+        set_pitch(float(values['Pitch']))
+    if event == 'Volume':
+        set_volume(float(values['Volume']-100))
+    if event == 'Calibrate':
+        calibrate()
+    if event == 'Save':
+        save(float(values['InitPitch']), float(values['MaxPitch']), float(values['MinPitch']), float(values['PitchPerSec']), int(values['Port']))
+    if event == 'Play-USB':
+        serial_port = serial.Serial(
+            port='COM5', \
+            baudrate=9600, \
+            parity=serial.PARITY_NONE, \
+            stopbits=serial.STOPBITS_ONE, \
+            bytesize=serial.EIGHTBITS, \
+            timeout=0)
+        play_usb(serial_port)
+    # Input validation
+    if event == 'Pitch'and values['Pitch'] and values['Pitch'][-1] not in ('0123456789.'):
+        _VARS['window']['Pitch'].update(values['Pitch'][:-1])
+    if event == 'InitPitch' and values['InitPitch'] and values['InitPitch'][-1] not in ('0123456789.'):
+        _VARS['window']['InitPitch'].update(values['InitPitch'][:-1])
+    if event == 'MaxPitch' and values['MaxPitch'] and values['MaxPitch'][-1] not in ('0123456789.'):
+        _VARS['window']['MaxPitch'].update(values['MaxPitch'][:-1])
+    if event == 'MinPitch' and values['MinPitch'] and values['MinPitch'][-1] not in ('0123456789.'):
+        _VARS['window']['MinPitch'].update(values['MinPitch'][:-1])
+    if event == 'PitchPerSec' and values['PitchPerSec'] and values['PitchPerSec'][-1] not in ('0123456789.'):
+        _VARS['window']['PitchPerSec'].update(values['PitchPerSec'][:-1])
+    if event == 'Port' and values['Port'] and values['Port'][-1] not in ('0123456789'):
+        _VARS['window']['Port'].update(values['Port'][:-1])
 
 _VARS['window'].close()
