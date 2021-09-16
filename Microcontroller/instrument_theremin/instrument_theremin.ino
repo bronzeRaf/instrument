@@ -5,7 +5,7 @@ int staticPin = 5;       // analog pin used to measure the static voltage
 int sharpPin = 0;       // analog pin used to connect the sharp sensor
 int irPin = 3;          // analog pin used to connect the ir sensor
 // Helpers
-long max_distance = 10000; 
+long max_distance = 1000000; 
 // Previous values
 long previous_static;
 long previous_ultrasonic;
@@ -38,7 +38,14 @@ void loop() {
   current_ir = exclude_outliers(previous_ir, use_ir_sensor(), max_distance);
   current_random = exclude_outliers(previous_random, use_random(), max_distance);
 
-  Serial.println(current_ultrasonic);  // prints the value of the sensor to the serial monitor
+  Serial.print("Sharp: ");
+  Serial.print(current_sharp);
+  Serial.print(" | Ultrasonic: ");
+  Serial.print(current_ultrasonic);
+  Serial.print(" | IR: ");
+  Serial.print(current_ir);
+  Serial.print(" | Base: ");
+  Serial.println(current_static);  // prints the value of the sensor to the serial monitor
   delay(800);                      // wait for this much time before printing next value
 
   // Replace previous values
@@ -52,54 +59,69 @@ void loop() {
 
 // _____________________Ultrasonic Sensor_______________________
 void setup_ultrasonic_sensor(){
-   pinMode(pingPin, OUTPUT);
-   pinMode(echoPin, INPUT);
+  pinMode(pingPin, OUTPUT);
+  pinMode(echoPin, INPUT);
 }
 
 long use_ultrasonic_sensor(){
-   long duration, cm;
-   
-   digitalWrite(pingPin, LOW);
-   delayMicroseconds(10);
-   digitalWrite(pingPin, HIGH);
-   delayMicroseconds(10);
-   digitalWrite(pingPin, LOW);
-   duration = pulseIn(echoPin, HIGH);
-   cm = microsecondsToCentimeters(duration);
-   return map(cm, 0, 125, 0, 255);
+  long duration, cm, max_val = 100, min_val = 4;  // Sensor value, cm, max and min
+  
+  digitalWrite(pingPin, LOW);
+  delayMicroseconds(10);
+  digitalWrite(pingPin, HIGH);
+  delayMicroseconds(10);
+  digitalWrite(pingPin, LOW);
+  duration = pulseIn(echoPin, HIGH);
+  cm = microsecondsToCentimeters(duration);
+  
+  // Value boundaries
+  if(cm > max_val){ cm = max_val; }
+  if(cm < min_val){ cm = min_val; }
+  return map(cm, min_val, max_val, 0, 255);
 }
 // _____________________________________________________________
 
 
 // _______________________Static Voltage________________________
 long use_static(){
-  long static_val = 0;                 // Sharp sensor value
-  static_val = analogRead(staticPin);  // reads the value of the sharp sensor
-  return map(static_val, 0, 1023, 0, 255);
+  long static_val = 0, max_val = 750, min_val = 450;  // Sensor value, max and min
+  static_val = analogRead(staticPin);                 // reads the value of the sharp sensor
+  // Value boundaries
+  if(static_val > max_val){ static_val = max_val ;}
+  if(static_val < min_val){ static_val = min_val; }
+  
+  return map(static_val, min_val, max_val, 0, 255);
 }
 // _____________________________________________________________
 
 // _______________________Sharp Sensor__________________________
 long use_sharp_sensor(){
-   long sharp_val, volts;                 // Sharp sensor value
-   sharp_val = analogRead(sharpPin);//*0.0048828125;   // reads the value of the sharp sensor
-//   return 13*pow(sharp_val, -1);
-  return map(sharp_val, 0, 1023, 0, 255);
+  long sharp_val, max_val = 540, min_val = 60;  // Sensor value, max and min
+  sharp_val = analogRead(sharpPin);             // reads the value of the sharp sensor
+  
+  // Value boundaries
+  if(sharp_val > max_val){ sharp_val = max_val; }
+  if(sharp_val < min_val){ sharp_val = min_val; }
+  return map(sharp_val, min_val, max_val, 0, 255);
 }
 // _____________________________________________________________
 
 // __________________________IR Sensor__________________________
 long use_ir_sensor(){
-   long ir_val = 0;              // IR sensor value
-   ir_val = analogRead(irPin);   // reads the value of the ir sensor
-   return map(ir_val, 0, 1023, 0, 255);
+  long ir_val = 0, max_val = 690, min_val = 60;   // Sensor value, max and min
+  ir_val = analogRead(irPin);                   // reads the value of the ir sensor
+  
+  // Value boundaries
+  if(ir_val > max_val){ ir_val = max_val; }
+  if(ir_val < min_val){ ir_val = min_val; }
+  return map(ir_val, min_val, max_val, 0, 255);
 }
 // _____________________________________________________________
 
 
 // ________________________Helpers______________________________
 long microsecondsToCentimeters(long microseconds) {
-   return microseconds / 29 / 2;
+  return microseconds / 29 / 2;
 }
 
 long exclude_outliers(long previous, long current, long max_distance){
