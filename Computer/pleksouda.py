@@ -195,6 +195,10 @@ def play_usb(serial_port):
         # Obtain USB value
         if serial_port.in_waiting:
             usb = serial_port.readline()
+            if usb > _VARS['usb_max']:
+                usb = _VARS['usb_max']
+            if usb < 0:
+                usb = 0
             # print(usb)
 
         # Process USB value
