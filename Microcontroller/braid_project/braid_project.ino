@@ -9,7 +9,7 @@ const int echo3 = 8;    // Echo Pin of Ultrasonic Sensor
 // Helpers
 long max_distance = 1000000; 
 long base_value = 125;
-double final_value;
+long final_value;
 
 // Previous values
 long previous_ultrasonic_1;
@@ -36,13 +36,14 @@ void loop() {
   current_ultrasonic_3 = exclude_outliers(previous_ultrasonic_3, use_ultrasonic_sensor(ping3, echo3), max_distance);
 
   // Debug - Testing
-  Serial.print("Ul1: ");
-  Serial.print(current_ultrasonic_1);
-  Serial.print(" | Ul2: ");
-  Serial.print(current_ultrasonic_2);
-  Serial.print(" | Ul3: ");
-  Serial.println(current_ultrasonic_3);
-
+//  Serial.print("Ul1: ");
+//  Serial.print(current_ultrasonic_1);
+//  Serial.print(" | Ul2: ");
+//  Serial.print(current_ultrasonic_2);
+//  Serial.print(" | Ul3: ");
+//  Serial.println(current_ultrasonic_3);
+  // End Debug - Testing
+  
   final_value = (current_ultrasonic_1 + current_ultrasonic_2 + current_ultrasonic_3 + base_value)/4;
   Serial.println(final_value);
   
@@ -57,7 +58,7 @@ void loop() {
 
 
 // _____________________Ultrasonic Sensor_______________________
-void setup_ultrasonic_sensor(){
+void setup_ultrasonic_sensors(){
   pinMode(ping1, OUTPUT);
   pinMode(ping2, OUTPUT);
   pinMode(ping3, OUTPUT);
