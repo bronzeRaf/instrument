@@ -10,11 +10,11 @@ import random
 _VARS = {'window': False,
          'stream': False,
          'initial_pitch': -7,
-         'min_pitch': -15,
-         'max_pitch': 2,
+         'min_pitch': -30,
+         'max_pitch': -5,
          'decibels_per_second': 100,
-         'pitch_per_second': 10,
-         'port': 8,
+         'pitch_per_second': 20,
+         'port': 3,
          'usb_max': 255}
 
 # pysimpleGUI INIT:
@@ -194,11 +194,14 @@ def play_usb(serial_port):
 
         # Obtain USB value
         if serial_port.in_waiting:
-            usb = serial_port.readline()
-            if usb > _VARS['usb_max']:
-                usb = _VARS['usb_max']
-            if usb < 0:
-                usb = 0
+            try:
+                usb = int(serial_port.readline())
+                if usb > _VARS['usb_max']:
+                    usb = _VARS['usb_max']
+                if usb < 0:
+                    usb = 0
+            except ValueError:
+                continue  # Go back and keep reading
             # print(usb)
 
         # Process USB value
@@ -206,7 +209,7 @@ def play_usb(serial_port):
         usb_pitch = (usb/_VARS['usb_max'])*(_VARS['max_pitch']-_VARS['min_pitch'])-abs(_VARS['min_pitch'])
         print("USB said: ",usb, '- Playing Pitch: ', usb_pitch)
         set_pitch(usb_pitch)
-        sleep(1)
+        # sleep(0.2)
 
 # MAIN LOOP
 

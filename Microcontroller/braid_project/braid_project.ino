@@ -53,7 +53,7 @@ void loop() {
   previous_ultrasonic_3 = current_ultrasonic_3;
 
   // wait for this much time before going to the next value
-  delay(800);
+  delay(200);
 } 
 
 
